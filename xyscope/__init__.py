@@ -14,7 +14,6 @@ class XYScope(object):
         self.panel.image = photo_image
 
     def _render_frame(self):
-        width, height = self.image.size
         pixels = self.image.load()
 
         samples = self.samples[self.sample_index:self.sample_index + self.frame_samples]
@@ -26,11 +25,11 @@ class XYScope(object):
         self.sample_index += 1
         self.sample_index %= len(self.samples)
 
-        samples = signal.resample(samples, len(samples)*self.smooth)
+        samples = signal.resample(samples, len(samples) * self.smooth)
 
         # Decay the displayed picture
-        for x in range(width):
-            for y in range(height):
+        for x in range(self.width):
+            for y in range(self.height):
                 r, g, b = pixels[x, y]
                 g -= self.decay
 
@@ -41,8 +40,15 @@ class XYScope(object):
 
         for sample in samples:
             left, right = sample
-            x = int(256 + left / 128.0)
-            y = int(256 + right / 128.0)
+
+            left /= 65536
+            right /= 65536
+
+            x_scale = self.width / 2
+            y_scale = self.height / 2
+
+            x = int(x_scale + left * x_scale)
+            y = int(y_scale + right * y_scale)
 
             r, g, b = pixels[x, y]
             g += self.attack
@@ -66,10 +72,13 @@ class XYScope(object):
         parser.add_argument("-f", "--frame-samples", type=int, default=0, help="The samples rendered per frame")
         parser.add_argument("-s", "--smooth", type=int, default=32, help="Factor of smoothing the drawn lines")
         parser.add_argument("-w", "--delay", type=int, default=10, help="Delay between the frames")
+        parser.add_argument("-x", "--width", type=int, default=256, help="Width of the plot")
+        parser.add_argument("-y", "--height", type=int, default=256, help="Height of the plot")
         params = parser.parse_args()
 
-        self.file_name, self.attack, self.decay, self.frame_samples, self.smooth, self.delay =\
-            params.filename, params.attack, params.decay, params.frame_samples, params.smooth, params.delay
+        self.file_name, self.attack, self.decay, self.frame_samples, self.smooth, self.delay, self.width, self.height =\
+            params.filename, params.attack, params.decay, params.frame_samples, params.smooth, params.delay,\
+            params.width, params.height
 
         self.sample_rate, self.samples = wavfile.read(self.file_name)
         self.sample_index = 0
@@ -80,7 +89,7 @@ class XYScope(object):
         if not self.frame_samples:
             self.frame_samples = self.sample_rate // (self.delay * 100)
 
-        self.image = Image.new("RGB", (512, 512))
+        self.image = Image.new("RGB", (self.width, self.height))
 
         self.root = tkinter.Tk()
         self.root.title("X/Y scope")
