@@ -1,0 +1,3 @@
+from . import XYScope
+
+XYScope()
